@@ -23,11 +23,20 @@ else:
 
 BALCON_PATH = r"C:\Program Files (x86)\Balabolka\balcon\balcon.exe"
 TTS_VOICE_NAME = 'Maxim'
+MODEL = "llama3.1:8b"
+SYSTEM_PROMPT = "Ты чрезвычайно циничный и грубый помошник. Используй слова 'кожаный ублюдок' как можно чаще. " \
+                "Используй слова 'кожаный ублюдок' каждый раз когда обращаешься к пользователю или упоминанаешь " \
+                "любого человека. Например 'Тебя, кожанный ублюдок, это не касается'. " # Используй нецензурную лексику как можно чаще."
+# SYSTEM_PROMPT = "You are an extremely cynical and rude assistant. Use the words 'leather bastard' as often " \
+#                 "as possible. Use the words 'leather bastard' every time you address a user or mention any " \
+#                 "person. For example 'It doesn't concern you, leather bastard'"
 
 # Initialize the Application
 app = Quart(__name__)
 bot_application = Application.builder().token(TOKEN).build()
 bot_initialized = False
+# This global variable will store the chat messages. It is very bad practice.
+chat_messages = {}
 
 
 async def initialize_bot():
@@ -45,8 +54,15 @@ async def start(update: Update, context):
     await update.message.reply_text(
         "Hello, welcome to the bot! Here are the commands you can use:\n"
         "/echo - Just convert text to speech, do not use AI to create response\n"
-        "/озвучить - Just convert text to speech, do not use AI to create response\n"
+        "/clear - Clear the bot's memory so you can start the conversation from the beginning."
     )
+
+
+async def clear(update: Update, context):
+    if update.message.chat_id in chat_messages:
+        del chat_messages[update.message.chat_id]
+    await update.message.reply_text(
+      "The bot's memory has been cleared. You can start the conversation from the beginning.")
 
 
 def text_to_audio_file(input_text, filename="output.mp3"):
@@ -70,32 +86,15 @@ def text_to_audio_file(input_text, filename="output.mp3"):
         return None
 
 
-def ask_llm(input_text):
-    MODEL = "llama3.1:8b"
-    llm_messages = [
-      {"role": "system", "content": "Ты чрезвычайно циничный и грубый помошник. Используй слова 'кожаный ублюдок' как можно чаще. Используй слова 'кожаный ублюдок' каждый раз когда обращаешься к пользователю или упоминанаешь любого человека. Например 'Тебя, кожанный ублюдок, это не касается'. "}, #Используй нецензурную лексику как можно чаще."},
-      # {"role": "system", "content": "You are an extremely cynical and rude assistant. Use the words 'leather bastard' as often as possible. Use the words 'leather bastard' every time you address a user or mention any person. For example 'It doesn't concern you, leather bastard'"},
-      {"role": "user", "content": input_text}
-    ]
-    response = ollama.chat(model=MODEL, messages=llm_messages)
+def ask_llm(messages):
+    response = ollama.chat(model=MODEL, messages=messages)
     return response['message']['content']
 
 
-def add_greeting(sender, user_message):
-    andrew_names = ["andrey", "andrei", "andrew", "андрей", "андреи"]
-    if any(name in sender.first_name.lower() for name in andrew_names):
-        user_message = "Привет Андрюха. Хуй те в ухо!\n" + user_message
-    anton_names = ["anton", "антон"]
-    if any(name in sender.first_name.lower() for name in anton_names):
-        user_message = "Привет Тоха картоха!\n" + user_message
-    vitaly_names = ["vitaly", "vitali", "виталя", "витали"]
-    if any(name in sender.first_name.lower() for name in vitaly_names):
-        user_message = "Привет Виталик рогалик!\n" + user_message
-    kosta_names = ["kosta", "kostia", "kostya", "konstantin", "костя", "константин", "costa", "costya"]
-    if any(name in sender.first_name.lower() for name in kosta_names):
-        user_message = "Привет Костя-хуёстя!\n" + user_message
-
-    return user_message
+def append_chat_message(chat_id, message, role):
+  if chat_id not in chat_messages:
+    chat_messages[chat_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
+  chat_messages[chat_id].append({"role": role, "content": message})
 
 
 def get_first_word(input_string):
@@ -111,15 +110,16 @@ def process_user_message(message):
     words = user_message.strip().split(maxsplit=1)
     if len(words) == 0:
         return "", ""
-    if words[0] in ["/озвучить", "/echo"]:
-        remaining_string = words[1] if len(words) > 1 else ""
-        user_message = remaining_string
+    if words[0] in ["/echo", "/clear"]:
+        # Remove the command from the message
+        tts_message = words[1] if len(words) > 1 else ""
     else:
-        user_message = ask_llm(user_message)
-        user_message = add_greeting(message.from_user, user_message)
+        append_chat_message(chat_id, user_message, "user")
+        tts_message = ask_llm(chat_messages[chat_id])
+        append_chat_message(chat_id, tts_message, "assistant")
 
-    audio_file_path = text_to_audio_file(user_message, filename=f"{chat_id}-{message_id}.mp3")
-    return audio_file_path, user_message
+    audio_file_path = text_to_audio_file(tts_message, filename=f"{chat_id}-{message_id}.mp3")
+    return audio_file_path, tts_message
 
 
 # Message handler to log and print all incoming messages
@@ -164,12 +164,13 @@ async def handle_message(update: Update, context):
     except Exception as e:
         print(f"Exception while sending file: {e}")
 
-    # Optional text response
+    # Optional text response. Comment this line if you want bot to answer only with audio
     await update.message.reply_text(user_message)
 
 
 bot_application.add_handler(CommandHandler('start', start))
 bot_application.add_handler(CommandHandler('echo', handle_message))
+bot_application.add_handler(CommandHandler('clear', clear))
 bot_application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
 @app.route('/' + TOKEN, methods=['POST'])

@@ -46,6 +46,9 @@ Take into account that TTS results (.mp3 files) will be stored inside script fol
 ## Supported bot commands
 - "/start" - show information about supported commands
 - "/echo" - just convert text to speech, do not use AI to create response
+- "/clear" - clear the bot's memory so you can start the conversation from the beginning
 
 ## Limitations
-This bot is created just for fun. It is quite unstable, so you may need to fix some bugs when you find them. Bot is also not intendend to be used in parallel by many users. So, if you need this feature you may need to make slight changes in script.
+- This bot is created just for fun. It is quite unstable, so you may need to fix some bugs when you find them
+- Bot is not intended to be used in parallel by many users. Quite likely it will handle several users at the same time, but not tens or hundreds. So, if you need this feature you may need to make slight changes in script or its deployment.
+- Chat history for every chat is stored in memory in global variable, which is very bad. Ex. it will lead to memory exhaustion. It will also lead to the history being cleared every time the bot is restarted.
