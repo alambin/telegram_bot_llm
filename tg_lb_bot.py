@@ -1,23 +1,32 @@
 import os
 import subprocess
+from dotenv import load_dotenv
 from quart import Quart, request, jsonify
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 import asyncio
 import concurrent.futures
-
-# Uncomment it to use LLM
 import ollama
 
-app = Quart(__name__)
+# Load environment variables
+load_dotenv()
+TOKEN = os.getenv('BOT_TOKEN')
+if TOKEN:
+    print(f"Bot token is {TOKEN}")
+else:
+    print("Please provide your bot token in .env file")
+HOSTNAME = os.getenv('HOSTNAME')
+if HOSTNAME:
+    print(f"Host name is {HOSTNAME}")
+else:
+    print("Please provide your host name (or IP address) in .env file")
 
-TOKEN = '8030645049:AAHtR5F3H6WUYvAItQa2THEIFoEDbDoOmb8'
-HOSTNAME = '118.71.83.67'
 BALCON_PATH = r"C:\Program Files (x86)\Balabolka\balcon\balcon.exe"
 TTS_VOICE_NAME = 'Maxim'
 
 # Initialize the Application
-application = Application.builder().token(TOKEN).build()
+app = Quart(__name__)
+bot_application = Application.builder().token(TOKEN).build()
 bot_initialized = False
 
 
@@ -25,15 +34,19 @@ async def initialize_bot():
     """Ensure the bot is initialized only once."""
     global bot_initialized
     if not bot_initialized:
-        await application.initialize()
-        await application.start()
+        await bot_application.initialize()
+        await bot_application.start()
         bot_initialized = True
         print("Telegram bot initialized and started.")
 
 
 # Command handler for /start
 async def start(update: Update, context):
-    await update.message.reply_text("Hello, welcome to the bot!")
+    await update.message.reply_text(
+        "Hello, welcome to the bot! Here are the commands you can use:\n"
+        "/echo - Just convert text to speech, do not use AI to create response\n"
+        "/озвучить - Just convert text to speech, do not use AI to create response\n"
+    )
 
 
 def text_to_audio_file(input_text, filename="output.mp3"):
@@ -58,12 +71,9 @@ def text_to_audio_file(input_text, filename="output.mp3"):
 
 
 def ask_llm(input_text):
-    # MODEL = "hf.co/Orenguteng/Llama-3.1-8B-Lexi-Uncensored-V2-GGUF:Llama-3.1-8B-Lexi-Uncensored_V2_Q4.gguf"
     MODEL = "llama3.1:8b"
-    # MODEL = "dolphin-mistral:latest"
-    # MODEL = "hf.co/bartowski/DarkIdol-Llama-3.1-8B-Instruct-1.2-Uncensored-GGUF:Q4_K_M"
     llm_messages = [
-      {"role": "system", "content": "Ты чрезвычайно циничный и грубый помошник. Используй слова 'кожаный ублюдок' как можно чаще. Используй слова 'кожаный ублюдок' каждый раз когда обращаешься к пользователю или упоминанаешь любого человека. Например 'Тебя, кожанный ублюдок, это не касается'. Используй нецензурную лексику как можно чаще."},
+      {"role": "system", "content": "Ты чрезвычайно циничный и грубый помошник. Используй слова 'кожаный ублюдок' как можно чаще. Используй слова 'кожаный ублюдок' каждый раз когда обращаешься к пользователю или упоминанаешь любого человека. Например 'Тебя, кожанный ублюдок, это не касается'. "}, #Используй нецензурную лексику как можно чаще."},
       # {"role": "system", "content": "You are an extremely cynical and rude assistant. Use the words 'leather bastard' as often as possible. Use the words 'leather bastard' every time you address a user or mention any person. For example 'It doesn't concern you, leather bastard'"},
       {"role": "user", "content": input_text}
     ]
@@ -74,19 +84,15 @@ def ask_llm(input_text):
 def add_greeting(sender, user_message):
     andrew_names = ["andrey", "andrei", "andrew", "андрей", "андреи"]
     if any(name in sender.first_name.lower() for name in andrew_names):
-        print("LAMBIN Andrew detected")
         user_message = "Привет Андрюха. Хуй те в ухо!\n" + user_message
     anton_names = ["anton", "антон"]
     if any(name in sender.first_name.lower() for name in anton_names):
-        print("LAMBIN Anton detected")
         user_message = "Привет Тоха картоха!\n" + user_message
     vitaly_names = ["vitaly", "vitali", "виталя", "витали"]
     if any(name in sender.first_name.lower() for name in vitaly_names):
-        print("LAMBIN Vitalik detected")
         user_message = "Привет Виталик рогалик!\n" + user_message
     kosta_names = ["kosta", "kostia", "kostya", "konstantin", "костя", "константин", "costa", "costya"]
     if any(name in sender.first_name.lower() for name in kosta_names):
-        print("LAMBIN Costa detected")
         user_message = "Привет Костя-хуёстя!\n" + user_message
 
     return user_message
@@ -102,7 +108,6 @@ def process_user_message(message):
     message_id = message.message_id
     user_message = message.text
 
-    # Uncomment it to use LLM
     words = user_message.strip().split(maxsplit=1)
     if len(words) == 0:
         return "", ""
@@ -160,20 +165,20 @@ async def handle_message(update: Update, context):
         print(f"Exception while sending file: {e}")
 
     # Optional text response
-    await update.message.reply_text(f"Received your message: {user_message}")
+    await update.message.reply_text(user_message)
 
 
-application.add_handler(CommandHandler('start', start))
-application.add_handler(CommandHandler('echo', handle_message))
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+bot_application.add_handler(CommandHandler('start', start))
+bot_application.add_handler(CommandHandler('echo', handle_message))
+bot_application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
 @app.route('/' + TOKEN, methods=['POST'])
 async def webhook():
     """Webhook endpoint for receiving updates."""
     try:
         await initialize_bot()  # Ensure bot is initialized before processing updates
-        update = Update.de_json(await request.get_json(), application.bot)
-        await application.process_update(update)
+        update = Update.de_json(await request.get_json(), bot_application.bot)
+        await bot_application.process_update(update)
     except Exception as e:
         print(f"Error processing update: {e}")
     return jsonify({"status": "ok"})
@@ -184,7 +189,7 @@ async def set_webhook():
     """Set the webhook with Telegram."""
     await initialize_bot()  # Ensure bot is initialized before setting the webhook
     webhook_url = f"https://{HOSTNAME}/{TOKEN}"
-    success = await application.bot.set_webhook(webhook_url)
+    success = await bot_application.bot.set_webhook(webhook_url)
     if success:
         return jsonify({"status": "webhook set successfully", "url": webhook_url})
     return jsonify({"status": "failed to set webhook"})

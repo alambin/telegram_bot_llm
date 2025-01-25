@@ -8,11 +8,20 @@ This is telegram bot, it receives text and responds the same message with roboti
 - After you provide a name, it will ask for a username. The username must be unique and must end with bot (e.g., myamazingbot).
 - After creating the bot, BotFather will give you a token.
 
-Save this token. Do not worry if you loose it - you can always open BotFather, get list of your bots and tokens for each of them.
+Save this token. Do not worry if you loose it - you can always open BotFather, get list of your bots and request tokens for each of them.
 
-## Update script
-- Write this token to TOKEN variable in script
-- Write your IP address or hostname to HOSTNAME variable in script
+## Update environment variables
+In the same folder with script create file named ".env". Use exactly this name, just 4 symbols.
+In this file add text
+```
+BOT_TOKEN='<TOKEN_FOR_YOUR_BOT>'
+HOSTNAME='<YOUR_HOSTNAME_OR_IP>'
+```
+Ex.
+```
+BOT_TOKEN='8030XXXXXX:AAHtR5F3H6WUYvAItQa2THEIFoEDbXXXXXX'
+HOSTNAME='118-YYY-71-83-67'
+```
 
 ## Setting up a webhook
 Before using telegram you need to set up sebhook. 
@@ -23,7 +32,7 @@ If you don't have public IP then:
 - Download ngrok from [ngrok.com](https://ngrok.com). Unzip downloaded file ex. in script folder.
 - Run "ngrok config add-authtoken"
 - Run command "ngrok http 5000". Pay attention that port is not 80 (default), but 5000, because script creates local server on this port. When ngrok started, it will give you URL, ex. "https://b\<your IP address\>.ngrok-free.app"
-- To set the webhook URL, visit URL https://api.telegram.org/bot\<YOUR_BOT_TOKEN\>/setWebhook?url=\<IP address which ngrock shows\>/\<YOUR_BOT_TOKEN\>. Ex. "https://api.telegram.org/bot803064XXXX:AAHtR5F3H6WUYvAItQa2THEIFoEDbDoXXXX/setWebhook?url=https://bXXX-YYY-71-83-67.ngrok-free.app/bot803064XXXX:AAHtR5F3H6WUYvAItQa2THEIFoEDbDoXXXX". In case of success, you will receive json like this "{"ok":true,"result":true,"description":"Webhook was set"}"
+- To set the webhook URL, visit URL https://api.telegram.org/bot\<YOUR_BOT_TOKEN\>/setWebhook?url=\<IP address which ngrock shows\>/\<YOUR_BOT_TOKEN\>. Ex. "https://api.telegram.org/bot8030XXXXXX:AAHtR5F3H6WUYvAItQa2THEIFoEDbXXXXXX/setWebhook?url=https://b118-YYY-71-83-67.ngrok-free.app/8030XXXXXX:AAHtR5F3H6WUYvAItQa2THEIFoEDbXXXXXX". In case of success, you will receive json like this "{"ok":true,"result":true,"description":"Webhook was set"}"
 
 ## How to test bot
 Now you can search in Telegram bot with your name, ex "myamazingbot". Start conversation and send something. In logs of your script you should be able to see this message, printed from handle_message() method.
