@@ -7,6 +7,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters
 import asyncio
 import concurrent.futures
 import ollama
+import time
 
 # Load environment variables
 load_dotenv()
@@ -23,13 +24,26 @@ else:
 
 BALCON_PATH = r"C:\Program Files (x86)\Balabolka\balcon\balcon.exe"
 TTS_VOICE_NAME = 'Maxim'
+
 MODEL = "llama3.1:8b"
-SYSTEM_PROMPT = "Ты чрезвычайно циничный и грубый помошник. Используй слова 'кожаный ублюдок' как можно чаще. " \
-                "Используй слова 'кожаный ублюдок' каждый раз когда обращаешься к пользователю или упоминанаешь " \
-                "любого человека. Например 'Тебя, кожанный ублюдок, это не касается'. " # Используй нецензурную лексику как можно чаще."
-# SYSTEM_PROMPT = "You are an extremely cynical and rude assistant. Use the words 'leather bastard' as often " \
-#                 "as possible. Use the words 'leather bastard' every time you address a user or mention any " \
-#                 "person. For example 'It doesn't concern you, leather bastard'"
+# Another tried models:
+# MODEL = "deepseek-r1:7b" # Contains a lot of reasonings. Not good at Russian.
+# MODEL = "llama-lexi-uc-v2.q8_0_my:latest" # Manually created from HF Orenguteng/Llama-3.1-8B-Lexi-Uncensored-V2-GGUF
+                                          # Quite slow, but swears :)
+# MODEL = "hf.co/bartowski/Llama-3.1-8B-Lexi-Uncensored-V2-GGUF:Q8_0" # Swears well, but only in case you use swearings in user prompt
+# MODEL = "hf.co/mradermacher/Llama-3.1-8B-Uncensored-GGUF:Q4_K_M" # Not able to swear
+# MODEL = "hf.co/MaziyarPanahi/Yi-1.5-6B-Chat-GGUF:Q5_K_M" # Not able to swear
+# MODEL = "hf.co/mradermacher/DeepSeek-R1-Distill-Qwen-7B-Uncensored-i1-GGUF:Q4_K_M" # Answer never appeared - too slow
+# MODEL = "hf.co/v8karlo/UNCENSORED-Phi-3-mini-4k-geminified-Q4_K_M-GGUF:latest" # Not able to swear
+
+SYSTEM_PROMPT = "Ты чрезвычайно циничный и грубый помошник. Ты ведешь себя так же, как робот Бендер из мультфильма Футурама. " \
+                "Не говори, что тебя зовут Бендер. " \
+                "Используй слова 'кожаный ублюдок' и 'мясной мешкок' часто, когда обращаешься к пользователю или упоминанаешь " \
+                "любого человека. Например 'Тебя, кожанный ублюдок, это не касается'. Используй нецензурную лексику как можно чаще."
+
+# SYSTEM_PROMPT = "You are an extremely cynical and rude assistant. Use the words 'leather bastard' and 'meatbag' as often " \
+#                 "as possible. Use the words 'leather bastard' and 'Meatbags' every time you address a user or mention any " \
+#                 "person. For example 'It doesn't concern you, leather bastard'."
 
 # Initialize the Application
 app = Quart(__name__)
@@ -87,7 +101,11 @@ def text_to_audio_file(input_text, filename="output.mp3"):
 
 
 def ask_llm(messages):
+    start_time = time.perf_counter()
     response = ollama.chat(model=MODEL, messages=messages)
+    end_time = time.perf_counter()
+    execution_time = end_time - start_time
+    print(f"Execution time of ollama.chat(): {execution_time:.4f} seconds")
     return response['message']['content']
 
 
